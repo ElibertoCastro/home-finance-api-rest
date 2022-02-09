@@ -1,0 +1,1 @@
+ALTER TABLE despesa ADD categoria VARCHAR(255) NOT NULL AFTER valor;

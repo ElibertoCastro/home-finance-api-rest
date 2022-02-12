@@ -13,4 +13,5 @@ public interface ReceitaRepository extends JpaRepository<Receita, Long>{
 
 	public List<Receita> findByDescricao(String descricao);
 	public List<Receita> findByDataReceita(LocalDate data);
+
 }

@@ -6,23 +6,19 @@ import java.time.LocalDate;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 
-import br.com.elicorp.homefinance.domain.model.category.DespesaCategory;
 import lombok.Data;
 
 @Data
-public class DespesaDto {
+public class ReceitaDto {
 
 	private Long id;
-	
+
 	@NotBlank
 	private String descricao;
 	
 	@NotNull
 	private BigDecimal valor;
 	
-	private DespesaCategory categoria;
-	
 	@NotNull
-	private LocalDate dataDespesa; 
-	
+	private LocalDate dataReceita;
 }

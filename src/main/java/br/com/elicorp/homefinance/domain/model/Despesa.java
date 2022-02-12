@@ -14,7 +14,6 @@ import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
-import br.com.elicorp.homefinance.api.dto.DespesaDto;
 import br.com.elicorp.homefinance.domain.model.category.DespesaCategory;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -53,7 +52,4 @@ public class Despesa {
 		 return mesmaDescricao == mesmoMes;
 	}
 	
-	public DespesaDto converteParaDto() {
-		return new DespesaDto(this.id, this.descricao, this.valor, this.categoria, this.dataDespesa);
-	}
 }

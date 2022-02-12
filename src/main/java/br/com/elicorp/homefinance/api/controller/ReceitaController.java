@@ -6,6 +6,7 @@ import java.util.Optional;
 import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
 
+import org.springframework.beans.BeanUtils;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import br.com.elicorp.homefinance.api.dto.ReceitaDto;
 import br.com.elicorp.homefinance.api.event.RecursoCriadoEvent;
 import br.com.elicorp.homefinance.domain.model.Receita;
 import br.com.elicorp.homefinance.domain.service.ReceitaService;
@@ -28,66 +30,91 @@ import lombok.AllArgsConstructor;
 @RequestMapping("/receitas")
 public class ReceitaController {
 
-	private ReceitaService receitaService;
+	final ReceitaService receitaService;
 	private ApplicationEventPublisher publisher;
 
 	@GetMapping
-	public List<Receita> listar(String descricao) {
+	public List<ReceitaDto> listar(String descricao) {
 
 		return receitaService.listar(descricao);
-
+		
 	}
 
 	@GetMapping("/{ano}/{mes}")
-	public List<Receita> resumoMensal(@PathVariable Integer ano, @PathVariable Integer mes) {
+	public List<ReceitaDto> resumoMensal(@PathVariable Integer ano, @PathVariable Integer mes) {
 		
 		return receitaService.resumoMensal(ano, mes);
 		
 	}
 	
 	@GetMapping("/{receitaId}")
-	public ResponseEntity<Receita> detalhar(@PathVariable Long receitaId) {
+	public ResponseEntity<ReceitaDto> detalhar(@PathVariable Long receitaId) {
 
-		return receitaService.detalhar(receitaId);
+		if(receitaService.detalhar(receitaId).isPresent()) {
+
+			var receitaDto = new ReceitaDto();
+			BeanUtils.copyProperties(receitaService.detalhar(receitaId).get(), receitaDto);
+			
+			return ResponseEntity.ok(receitaDto);
+		}
+
+		return ResponseEntity.notFound().build();
 
 	}
 
 	@PostMapping
-	public ResponseEntity<Receita> salvar(@Valid @RequestBody Receita receita, HttpServletResponse response) {
-
-		receita = receitaService.cadastrar(receita).get();
+	public ResponseEntity<ReceitaDto> salvar(@Valid @RequestBody ReceitaDto receitaDto, HttpServletResponse response) {
+		
+		// Copiando os dados obtidos de ReceitaDto para Receita
+		var receita = new Receita();
+		BeanUtils.copyProperties(receitaDto, receita);
+		receita = receitaService.cadastrar(receita);
 		
 		// Adiciona o HATEOAS ao header
 		publisher.publishEvent(new RecursoCriadoEvent(this, response, receita.getId()));
 
-		return ResponseEntity.status(HttpStatus.CREATED).body(receita);
-	}
-
-	@DeleteMapping("/{receitaId}")
-	public ResponseEntity<Void> deletar(@PathVariable Long receitaId) {
-		
-		if(receitaService.excluir(receitaId)) {
-
-			return ResponseEntity.noContent().build();
-
-		}
-
-		return ResponseEntity.notFound().build();
-
+		// Copiando os dados gravados no banco de dados de Receita para ReceitaDto
+		BeanUtils.copyProperties(receita, receitaDto);
+		return ResponseEntity.status(HttpStatus.CREATED).body(receitaDto);
 	}
 
 	@PutMapping("/{receitaId}")
-	public ResponseEntity<Receita> atualizar(@PathVariable Long receitaId, @Valid @RequestBody Receita receita) {
-
-		Optional<Receita> receitaOpt = receitaService.atualizar(receitaId, receita);
+	public ResponseEntity<ReceitaDto> atualizar(@PathVariable Long receitaId, @Valid @RequestBody ReceitaDto receitaDto) {
 		
-		if(receitaOpt.isPresent()) {
+		Optional<Receita> receitaOptional = receitaService.findById(receitaId);
+		
+		if(receitaOptional.isEmpty()) {
 			
-			return ResponseEntity.ok(receita);
+			return ResponseEntity.notFound().build();
 		}
 		
-		return ResponseEntity.notFound().build();
+		// Copiando os dados obtidos de ReceitaDto para Receita
+		var receita = new Receita();
+		BeanUtils.copyProperties(receitaDto, receita);
+		receita.setId(receitaId);
+		
+		// Copiando os dados gravados no banco de dados de Receita para ReceitaDto
+		BeanUtils.copyProperties(receitaService.atualizar(receita), receitaDto);
+		
+		return ResponseEntity.ok(receitaDto);
+		
+	}
+	
+	@DeleteMapping("/{receitaId}")
+	public ResponseEntity<Void> deletar(@PathVariable Long receitaId) {
+		
+		Optional<Receita> receitaOptional = receitaService.findById(receitaId);
+		
+		if(receitaOptional.isEmpty()) {
+
+			return ResponseEntity.notFound().build();
+			
+		}
+
+		receitaService.excluir(receitaId);
+		return ResponseEntity.noContent().build();
 
 	}
+
 
 }

@@ -1,14 +1,16 @@
 package br.com.elicorp.homefinance.domain.service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 import javax.transaction.Transactional;
 
-import org.springframework.http.ResponseEntity;
+import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 
+import br.com.elicorp.homefinance.api.dto.ReceitaDto;
 import br.com.elicorp.homefinance.domain.model.Receita;
 import br.com.elicorp.homefinance.domain.model.exception.NegocioException;
 import br.com.elicorp.homefinance.domain.repository.ReceitaRepository;
@@ -20,25 +22,32 @@ public class ReceitaService {
 
 	private ReceitaRepository receitaRepository;
 
-	public List<Receita> listar(String descricao) {
+	public List<ReceitaDto> listar(String descricao) {
 
 		if(descricao != null) {
 
-			return receitaRepository.findByDescricao(descricao);
+			return transformaParaListDto(receitaRepository.findByDescricao(descricao));
 
 		}
 
-		return receitaRepository.findAll();
+		return transformaParaListDto(receitaRepository.findAll());
+	}
+
+	public Optional<Receita> detalhar(Long receitaId) {
+		
+		return receitaRepository.findById(receitaId);
 	}
 
 	@Transactional
-	public Optional<Receita> cadastrar(Receita receita) {
+	public Receita cadastrar(Receita receita) {
 
-		boolean receitaDuplicada = verificaReceitaJaCadastrada(receita);
+		boolean receitaDuplicada = receitaRepository.findByDescricao(receita.getDescricao())
+				.stream()
+				.anyMatch(r -> r.verificaReceitaDuplicada(receita));
 
 		if(!receitaDuplicada) {
 
-			return Optional.of(receitaRepository.save(receita)); 
+			return receitaRepository.save(receita); 
 
 		}
 
@@ -46,63 +55,47 @@ public class ReceitaService {
 	}
 
 	@Transactional
-	public Boolean excluir(Long receitaId) {
+	public void excluir(Long receitaId) {
 
-		if(receitaRepository.existsById(receitaId)) {
-
-			receitaRepository.deleteById(receitaId);
-			return true;
-
-		}
-
-		return false;
+		receitaRepository.deleteById(receitaId);
 
 	}
 
 	@Transactional
-	public Optional<Receita> atualizar(Long receitaId, Receita receita) {
+	public Receita atualizar(Receita receita) {
 
-		if(receitaRepository.existsById(receitaId)) {
+		Receita receitaAntiga = receitaRepository.getById(receita.getId());
 
-			Receita receitaAntiga = receitaRepository.getById(receitaId);
-			receita.setId(receitaId);
-
+		if(receitaAntiga.getDescricao().compareTo(receita.getDescricao()) == 0) {
 			
-			if(receitaAntiga.getDescricao().compareTo(receita.getDescricao()) == 0) {
-				
-				return Optional.of(receitaRepository.save(receita));
-				
-			} else {
-				
-				return cadastrar(receita); 				
-				
-			}
+			return receitaRepository.save(receita);
+			
+		} else {
+			
+			return cadastrar(receita); 				
+			
 		}
-		
-		Optional<Receita> receitaOpt = Optional.empty();
-		return receitaOpt;
-
-	}
-
-	public ResponseEntity<Receita> detalhar(Long receitaId) {
-
-		return receitaRepository.findById(receitaId)
-				.map(receita -> ResponseEntity.ok(receita))
-				.orElse(ResponseEntity.notFound().build());
+	
 	}
 
 
-	public List<Receita> resumoMensal(Integer ano, Integer mes) {
+
+	public List<ReceitaDto> resumoMensal(Integer ano, Integer mes) {
 
 		//		filtrar pelo mes;
 		List<Receita> receitasPorMes = this.resumoAnual(ano).stream()
 				.filter(receita -> receita.getDataReceita().getMonthValue() == mes)
 				.collect(Collectors.toList());
 		//		retornar lista.
-		return receitasPorMes;
+		return transformaParaListDto(receitasPorMes);
 
 	}
 
+	public Optional<Receita> findById(Long receitaId) {
+		
+		return receitaRepository.findById(receitaId);
+	}
+	
 	private List<Receita> resumoAnual(Integer ano) {
 
 		//		buscar lista de receitas;
@@ -115,12 +108,21 @@ public class ReceitaService {
 
 		return receitasPorAno;
 	}
-	
-	private Boolean verificaReceitaJaCadastrada(Receita receita) {
+
+	private List<ReceitaDto> transformaParaListDto(List<Receita> receitaList) {
 		
-		return receitaRepository.findByDescricao(receita.getDescricao())
-		.stream()
-		.anyMatch(r -> r.verificaReceitaDuplicada(receita));
+		List<ReceitaDto> receitasDto = new ArrayList<ReceitaDto>();
+		
+		for (Receita receita : receitaList) {
+			
+			var receitaDto = new ReceitaDto();
+			BeanUtils.copyProperties(receita, receitaDto);
+			receitasDto.add(receitaDto);
+			
+		}
+		
+		return receitasDto;
 		
 	}
+
 }

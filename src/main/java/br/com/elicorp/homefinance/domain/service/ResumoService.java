@@ -6,9 +6,9 @@ import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 
+import br.com.elicorp.homefinance.api.dto.DespesaDto;
+import br.com.elicorp.homefinance.api.dto.ReceitaDto;
 import br.com.elicorp.homefinance.api.dto.ResumoDto;
-import br.com.elicorp.homefinance.domain.model.Despesa;
-import br.com.elicorp.homefinance.domain.model.Receita;
 import lombok.AllArgsConstructor;
 
 @Service
@@ -38,7 +38,7 @@ public class ResumoService {
 	private BigDecimal calculaDespesasMensais(Integer ano, Integer mes) {
 
 		// Listar as despesas mensais
-		List<Despesa> despesasMensais = despesaService.resumoMensal(ano, mes);
+		List<DespesaDto> despesasMensais = despesaService.resumoMensal(ano, mes);
 
 		// Somar as despesas mensais
 		Optional<BigDecimal> totalDespesasMensais = despesasMensais
@@ -59,7 +59,7 @@ public class ResumoService {
 	private BigDecimal calculaReceitasMensais(Integer ano, Integer mes) {
 
 		// Listar as receitas mensais
-		List<Receita> receitasMensais = receitaService.resumoMensal(ano, mes);
+		List<ReceitaDto> receitasMensais = receitaService.resumoMensal(ano, mes);
 
 		// Somar as receitas mensais
 		Optional<BigDecimal> totalReceitasMensais = receitasMensais
@@ -79,11 +79,11 @@ public class ResumoService {
 	private void calculaValorGastoPorCategoria(Integer ano, Integer mes, ResumoDto resumo) {
 		
 		// Listar as despesas mensais
-		List<Despesa> despesasMensais = despesaService.resumoMensal(ano, mes);
+		List<DespesaDto> despesasMensais = despesaService.resumoMensal(ano, mes);
 		
 		if (!despesasMensais.isEmpty()) {
 
-			for (Despesa despesa : despesasMensais) {
+			for (DespesaDto despesa : despesasMensais) {
 
 				resumo.adicionarCategoriaValor(despesa.getCategoria(), despesa.getValor());
 

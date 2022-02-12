@@ -1,14 +1,16 @@
 package br.com.elicorp.homefinance.domain.service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 import javax.transaction.Transactional;
 
-import org.springframework.http.ResponseEntity;
+import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 
+import br.com.elicorp.homefinance.api.dto.DespesaDto;
 import br.com.elicorp.homefinance.domain.model.Despesa;
 import br.com.elicorp.homefinance.domain.model.category.DespesaCategory;
 import br.com.elicorp.homefinance.domain.model.exception.NegocioException;
@@ -21,21 +23,21 @@ public class DespesaService {
 
 	private DespesaRepository despesaRepository;
 
-	public List<Despesa> listar(String descricao) {
+	public List<DespesaDto> listar(String descricao) {
 
 		if(descricao != null) {
 
 			System.out.println(descricao);
-			return despesaRepository.findByDescricao(descricao);
+			return transformaParaListDespesaDto(despesaRepository.findByDescricao(descricao));
 
 		}
 
-		return despesaRepository.findAll();
+		return transformaParaListDespesaDto(despesaRepository.findAll());
 
 	}
 
 	@Transactional
-	public Optional<Despesa> cadastrar(Despesa despesa) {
+	public Despesa cadastrar(Despesa despesa) {
 
 		boolean despesaDuplicada = despesaRepository.findByDescricao(despesa.getDescricao())
 				.stream()
@@ -49,7 +51,7 @@ public class DespesaService {
 
 			}
 
-			return Optional.of(despesaRepository.save(despesa));
+			return despesaRepository.save(despesa);
 
 		}
 
@@ -57,66 +59,75 @@ public class DespesaService {
 
 	}
 
-	public ResponseEntity<Despesa> detalhar(Long despesaId) {
+	public Optional<Despesa> detalhar(Long despesaId) {
 
-		return despesaRepository.findById(despesaId)
-				.map(despesa -> ResponseEntity.ok(despesa))
-				.orElse(ResponseEntity.notFound().build());
+		return despesaRepository.findById(despesaId);
 
 	}
 
 	@Transactional
-	public Optional<Despesa> atualizar(Long despesaId, Despesa despesa) {
+	public Despesa atualizar(Despesa despesa) {
 
-		if(despesaRepository.existsById(despesaId)) {
+		Despesa despesaAntiga = despesaRepository.getById(despesa.getId());
 
-			Despesa despesaAntiga = despesaRepository.getById(despesaId);
-			despesa.setId(despesaId);
+		if(despesaAntiga.getDescricao().compareTo(despesa.getDescricao()) == 0) {
 
+			return despesaRepository.save(despesa);
 
-			if(despesaAntiga.getDescricao().compareTo(despesa.getDescricao()) == 0) {
+		} else {
 
-				return Optional.of(despesaRepository.save(despesa));
+			return cadastrar(despesa); 				
 
-			} else {
-
-				return cadastrar(despesa); 				
-
-			}
 		}
 
-		Optional<Despesa> receitaOpt = Optional.empty();
-		return receitaOpt;
 	}
 
 	@Transactional
-	public boolean excluir(Long despesaId) {
+	public void excluir(Long despesaId) {
 
-		if(despesaRepository.existsById(despesaId)) {
+		despesaRepository.deleteById(despesaId);
+
+	}
+
+	public List<DespesaDto> resumoMensal(Integer ano, Integer mes) {
+
+		return transformaParaListDespesaDto(this.resumoAnual(ano)
+				.stream()
+				.filter(despesa -> despesa.getDataDespesa().getMonthValue() == mes)
+				.collect(Collectors.toList()));
+	}
+
+	public Optional<Despesa> findById(Long despesaId) {
+		
+		return despesaRepository.findById(despesaId);
+	
+	}
+	
+	private List<DespesaDto> transformaParaListDespesaDto(List<Despesa> despesasList) {
+		
+		List<DespesaDto> despesasDto = new ArrayList<DespesaDto>();
+		
+		for (Despesa despesa: despesasList) {
 			
-			despesaRepository.deleteById(despesaId);
-			return true;
+			var despesaDto = new DespesaDto();
+			BeanUtils.copyProperties(despesa, despesaDto);
+			despesasDto.add(despesaDto);
 			
 		}
 		
-		return false;
-
+		return despesasDto;
+		
 	}
-
-	public List<Despesa> resumoMensal(Integer ano, Integer mes) {
-
-		return this.resumoAnual(ano)
-				.stream()
-				.filter(despesa -> despesa.getDataDespesa().getMonthValue() == mes)
-				.collect(Collectors.toList());
-	}
-
-	public List<Despesa> resumoAnual(Integer ano) {
-
+	
+	private List<Despesa> resumoAnual(Integer ano) {
+		
 		List<Despesa> todasDespesas = despesaRepository.findAll();
 		return todasDespesas.stream()
 				.filter(despesa -> despesa.getDataDespesa().getYear() == ano)
 				.collect(Collectors.toList());
-
+		
 	}
+	
+	
 }
+

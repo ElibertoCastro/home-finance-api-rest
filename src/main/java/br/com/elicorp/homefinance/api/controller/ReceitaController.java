@@ -1,5 +1,7 @@
 package br.com.elicorp.homefinance.api.controller;
 
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.*;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -34,26 +36,44 @@ public class ReceitaController {
 	private ApplicationEventPublisher publisher;
 
 	@GetMapping
-	public List<ReceitaDto> listar(String descricao) {
+	public List<ReceitaDto> getAllReceita(String descricao) {
 
-		return receitaService.listar(descricao);
+		List<ReceitaDto> receitas = receitaService.listar(descricao);
 		
+		if(!receitas.isEmpty()) {
+			for (ReceitaDto receitaDto : receitas) {
+				long id = receitaDto.getId();
+				receitaDto.add(linkTo(methodOn(ReceitaController.class).getOneReceita(id)).withSelfRel());
+			}
+		}
+		
+		return receitas;
 	}
 
 	@GetMapping("/{ano}/{mes}")
 	public List<ReceitaDto> resumoMensal(@PathVariable Integer ano, @PathVariable Integer mes) {
 		
-		return receitaService.resumoMensal(ano, mes);
+		List<ReceitaDto> receitas = receitaService.resumoMensal(ano, mes);
+		
+		if(!receitas.isEmpty()) {
+			for (ReceitaDto receitaDto : receitas) {
+				long id = receitaDto.getId();
+				receitaDto.add(linkTo(methodOn(ReceitaController.class).getOneReceita(id)).withSelfRel());
+			}
+		}
+		
+		return receitas;
 		
 	}
 	
 	@GetMapping("/{receitaId}")
-	public ResponseEntity<ReceitaDto> detalhar(@PathVariable Long receitaId) {
+	public ResponseEntity<ReceitaDto> getOneReceita(@PathVariable Long receitaId) {
 
 		if(receitaService.detalhar(receitaId).isPresent()) {
 
 			var receitaDto = new ReceitaDto();
 			BeanUtils.copyProperties(receitaService.detalhar(receitaId).get(), receitaDto);
+			receitaDto.add(linkTo(methodOn(ReceitaController.class).getAllReceita(null)).withRel("Lista de Receitas: "));
 			
 			return ResponseEntity.ok(receitaDto);
 		}

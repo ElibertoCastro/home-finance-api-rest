@@ -1,5 +1,8 @@
 package br.com.elicorp.homefinance.api.controller;
 
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -7,7 +10,6 @@ import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
 
 import org.springframework.beans.BeanUtils;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -20,7 +22,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import br.com.elicorp.homefinance.api.dto.DespesaDto;
-import br.com.elicorp.homefinance.api.event.RecursoCriadoEvent;
 import br.com.elicorp.homefinance.domain.model.Despesa;
 import br.com.elicorp.homefinance.domain.service.DespesaService;
 import lombok.AllArgsConstructor;
@@ -31,30 +32,48 @@ import lombok.AllArgsConstructor;
 public class DespesaController {
 	
 	private DespesaService despesaService;
-	private ApplicationEventPublisher publisher; 
 	
 	@GetMapping
-	public List<DespesaDto> listar(String descricao) {
+	public List<DespesaDto> getAllDespesa(String descricao) {
 		
-		return despesaService.listar(descricao);
+		List<DespesaDto> despesas = despesaService.listar(descricao);
+		
+		if(!despesas.isEmpty()) {
+			for (DespesaDto despesaDto : despesas) {
+				long id = despesaDto.getId();
+				despesaDto.add(linkTo(methodOn(DespesaController.class).getOneDespesa(id)).withSelfRel());
+			}
+		}
+		
+		return despesas;
 		
 	}
 	
 	@GetMapping("/{ano}/{mes}")
 	public List<DespesaDto> resumoMensal(@PathVariable Integer ano, @PathVariable Integer mes) {
 		
-		return despesaService.resumoMensal(ano, mes);
+		List<DespesaDto> despesas = despesaService.resumoMensal(ano, mes);
+		
+		if(!despesas.isEmpty()) {
+			for (DespesaDto despesaDto : despesas) {
+				long id = despesaDto.getId();
+				despesaDto.add(linkTo(methodOn(DespesaController.class).getOneDespesa(id)).withSelfRel());
+			}
+		}
+		
+		return despesas;
 		
 	}
 	
 	@GetMapping("/{despesaId}")
-	public ResponseEntity<DespesaDto> detalhar(@PathVariable Long despesaId) {
+	public ResponseEntity<DespesaDto> getOneDespesa(@PathVariable Long despesaId) {
 		
 		if(despesaService.detalhar(despesaId).isPresent()) {
 
 			var despesaDto = new DespesaDto();
 			BeanUtils.copyProperties(despesaService.detalhar(despesaId).get(), despesaDto);
-
+			despesaDto.add(linkTo(methodOn(DespesaController.class).getAllDespesa(null)).withRel("Listar Despesas: "));
+			
 			return ResponseEntity.ok(despesaDto);
 		}
 		return ResponseEntity.notFound().build();
@@ -68,9 +87,6 @@ public class DespesaController {
 		var despesa = new Despesa();
 		BeanUtils.copyProperties(despesaDto, despesa);
 		despesa = despesaService.cadastrar(despesa);
-		
-		// Adiciona o HATEOAS ao header
-		publisher.publishEvent(new RecursoCriadoEvent(this, response, despesa.getId()));
 		
 		// Copiando os dados gravados no banco de dados de Despesa para DespesaDto
 		BeanUtils.copyProperties(despesa, despesaDto);
